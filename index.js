@@ -8,7 +8,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const bot = new Telegraf("7455860494:AAEVxer_pDluogL51rzZ_qjsF6hY7Z7eRsY");
+const bot = new Telegraf("YOUR_BOT_KEY");
 const messagesFilePath = "./messages.json";
 
 // Чтение истории сообщений из файла
