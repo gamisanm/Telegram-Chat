@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Telegram Bot Chat</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+     <div id="chatContainer">
+    <div class="sidebar">
+      <h2>Пользователи</h2>
+      <ul id="userList" class="user-list">
+        <!-- Список пользователей будет добавляться динамически -->
+      </ul>
+    </div>
+
+    <div class="chat-area">
+      <h1>Чат с Telegram ботом</h1>
+
+      <div id="userInfo" class="user-info"></div>
+
+      <div id="messages"></div>
+
+      <div class="form-container">
+        <input
+          type="text"
+          id="messageInput"
+          placeholder="Введите сообщение..."
+        />
+        <button onclick="sendMessage()">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+    <script>
+      const socket = io();
+      let activeUserId = null;
+
+      socket.on("allUsers", (userIds) => {
+        const userList = document.getElementById("userList");
+        userList.innerHTML = ""; // Очищаем список пользователей
+
+        userIds.forEach((userId) => {
+          const li = document.createElement("li");
+          li.textContent = `Пользователь ${userId}`;
+          li.setAttribute("data-user-id", userId);
+          li.onclick = () => {
+            selectUser(userId);
+          };
+          userList.appendChild(li);
+        });
+      });
+
+      socket.on("loadMessages", (data) => {
+        const { userMessages, userInfo } = data;
+        const messagesDiv = document.getElementById("messages");
+        const userInfoDiv = document.getElementById("userInfo");
+        messagesDiv.innerHTML = ""; // Очищаем сообщения при смене пользователя
+        userInfoDiv.innerHTML = `Имя: ${userInfo.firstName || "Без имени"}<br>
+                               Фамилия: ${
+                                 userInfo.lastName || "Без фамилии"
+                               }<br>
+                               Username: ${
+                                 userInfo.username || "Без username"
+                               }`;
+
+        userMessages.forEach((msg) => {
+          addMessage(
+            `${msg.from === "user" ? "Пользователь" : "Вы"}: ${msg.text}`
+          );
+        });
+      });
+
+      socket.on("telegramMessage", (data) => {
+        if (data.userId === activeUserId) {
+          addMessage(`Пользователь: ${data.message}`);
+        }
+      });
+
+      socket.on("updateUsersWithUnanswered", (unansweredUsers) => {
+        const userList = document.getElementById("userList");
+        const userIds = Array.from(userList.querySelectorAll("li")).map((li) =>
+          li.getAttribute("data-user-id")
+        );
+
+        userIds.forEach((userId) => {
+          const li = userList.querySelector(`li[data-user-id="${userId}"]`);
+          if (unansweredUsers.includes(parseInt(userId))) {
+            li.classList.add("active");
+          } else {
+            li.classList.remove("active");
+          }
+        });
+      });
+
+      function selectUser(userId) {
+        activeUserId = userId;
+        loadMessages(userId);
+        const userList = document.getElementById("userList");
+        [...userList.querySelectorAll("li")].forEach((li) => {
+          if (li.getAttribute("data-user-id") === userId.toString()) {
+            li.classList.add("active");
+          } else {
+            li.classList.remove("active");
+          }
+        });
+      }
+
+      function loadMessages(userId) {
+        socket.emit("selectUser", userId);
+      }
+
+      function addMessage(text) {
+        const messagesDiv = document.getElementById("messages");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message";
+        messageDiv.textContent = text;
+        messagesDiv.appendChild(messageDiv);
+      }
+
+      function sendMessage() {
+        const messageInput = document.getElementById("messageInput");
+        const message = messageInput.value;
+        if (message && activeUserId) {
+          socket.emit("sendMessageToTelegram", {
+            userId: activeUserId,
+            message,
+          });
+          addMessage(`Вы: ${message}`);
+          messageInput.value = "";
+        }
+      }
+    </script>
+  </body>
+</html>
